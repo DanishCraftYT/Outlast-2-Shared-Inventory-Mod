@@ -1,24 +1,14 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <format>
 
+#include "Window/Window.hpp"
 #include "Memory/Memory.hpp"
 
 int main() {
     Memory mem("Outlast2.exe", "Outlast2.exe");
-    // waits for Outlast 2 process to open if it's not already open.
-    while (true) {
-        // breaks out of the loop once the Outlast 2 process has been found.
-        if (mem.getProcess()) {
-            break;
-        }
-
-        std::cout << "Outlast 2 not running. retrying in 1 second." << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        system("cls");
-    }
-
-    std::cout << "Outlast 2 process found." << std::endl;
+    Window window({4, 6, GLFW_OPENGL_CORE_PROFILE}, {500, 500}, WindowMode::WINDOWED_FALLBACK, "Outlast 2 Shared Inventory Mod!");
 
     int batteries = 0;
     int bandages = 0;
@@ -30,69 +20,88 @@ int main() {
     const int maxInventory = 8;
     const int bandageSpace = 2; // bandages takes up 2 batteries of space.
 
-    /* TEST:
-    int defaultBatteries = 6;
-    mem.writeMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &defaultBatteries, sizeof(defaultBatteries));
-    int defaultBandages = 0;
-    mem.writeMemory(mem.readPointer(0x020F5220, { 0x10, 0x10, 0x154, 0xC88 }), &defaultBandages, sizeof(defaultBandages));
-    */
+    int guiBatteries = 0;
+    int guiBandages = 0;
 
-    while (true) {
-        lastBatteriesValue = batteries;
-        // reads batteries value.
-        if (!mem.readMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &batteries, sizeof(batteries))) {
-            std::cout << "failed to read batteries value." << std::endl;
-            break;
+    while (!window.shouldWindowClose()) {
+        // sets the viewport color.
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        window.newFrameImGUI();
+
+        ImGui::Begin("Outlast 2 Shared Inventory Mod!");
+        // checks if the Outlast 2 process is running.
+        if (!mem.getProcess()) {
+            ImGui::Text("Outlast 2 is not running. please open the game.");
         }
+        else {
+            lastBatteriesValue = batteries;
+            // reads batteries value.
+            if (!mem.readMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &batteries, sizeof(batteries))) {
+                std::cout << "failed to read batteries value." << std::endl;
+                break;
+            }
 
-        lastBandagesValue = bandages;
-        // reads bandages value.
-        if (!mem.readMemory(mem.readPointer(0x020F5220, { 0x10, 0x10, 0x154, 0xC88 }), &bandages, sizeof(bandages))) {
-            std::cout << "failed to read bandages value." << std::endl;
-            break;
-        }
+            lastBandagesValue = bandages;
+            // reads bandages value.
+            if (!mem.readMemory(mem.readPointer(0x0219FDB8, { 0x8, 0x154, 0xC88 }), &bandages, sizeof(bandages))) {
+                std::cout << "failed to read bandages value." << std::endl;
+                break;
+            }
 
-        bandageSpaceUsed = bandages * bandageSpace;
-        totalSpaceUsed = batteries + bandageSpaceUsed;
+            bandageSpaceUsed = bandages * bandageSpace;
+            totalSpaceUsed = batteries + bandageSpaceUsed;
 
-        // determines if the total space used by the batteries and bandages exceeds the available space.
-        if (totalSpaceUsed > maxInventory) {
-            if (lastBatteriesValue != batteries) {
-                if (!mem.writeMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &lastBatteriesValue, sizeof(lastBatteriesValue))) {
-                    std::cout << "failed to write batteries value." << std::endl;
-                    break;
+            // determines if the total space used by the batteries and bandages exceeds the available space.
+            if (totalSpaceUsed > maxInventory) {
+                if (lastBatteriesValue != batteries) {
+                    if (!mem.writeMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &lastBatteriesValue, sizeof(lastBatteriesValue))) {
+                        std::cout << "failed to write batteries value." << std::endl;
+                        break;
+                    }
+                }
+                else if (lastBandagesValue != bandages) {
+                    if (!mem.writeMemory(mem.readPointer(0x0219FDB8, { 0x8, 0x154, 0xC88 }), &lastBandagesValue, sizeof(lastBandagesValue))) {
+                        std::cout << "failed to write bandages value." << std::endl;
+                        break;
+                    }
                 }
             }
-            else if (lastBandagesValue != bandages) {
-                if (!mem.writeMemory(mem.readPointer(0x020F5220, { 0x10, 0x10, 0x154, 0xC88 }), &lastBandagesValue, sizeof(lastBandagesValue))) {
-                    std::cout << "failed to write bandages value." << std::endl;
-                    break;
+
+            ImGui::Text(std::format("Inventory Used: {} / 8", totalSpaceUsed).c_str());
+            ImGui::Text(std::format("Batteries: {}", batteries).c_str());
+            ImGui::Text(std::format("Bandages: {} (space used: {})", bandages, bandageSpaceUsed).c_str());
+            // debug options.
+            if (ImGui::CollapsingHeader("DEBUG")) {
+                guiBatteries = batteries;
+                // batteries.
+                if (ImGui::SliderInt("Batteries In Inventory", &guiBatteries, 0, 8)) {
+                    if (!mem.writeMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &guiBatteries, sizeof(guiBatteries))) {
+                        std::cout << "failed to write bandages value." << std::endl;
+                        break;
+                    }
+                }
+
+                guiBandages = bandages;
+                // bandages.
+                if (ImGui::SliderInt("Bandages In Inventory", &guiBandages, 0, 4)) {
+                    if (!mem.writeMemory(mem.readPointer(0x0219FDB8, { 0x8, 0x154, 0xC88 }), &guiBandages, sizeof(guiBandages))) {
+                        std::cout << "failed to write bandages value." << std::endl;
+                        break;
+                    }
                 }
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        ImGui::End();
+        window.renderImGUI();
+
+        // swaps GLFW window buffers and handle poll events.
+        window.swapBuffers();
+        window.pollEvents();
     }
 
-    /* TEST:
-    while (true) {
-        lastBatteriesValue = batteries;
-        std::cin >> batteries;
-        lastBandagesValue = bandages;
-        std::cin >> bandages;
-
-        bandageSpaceUsed = bandages * bandageSpace;
-        totalSpaceUsed = batteries + bandageSpaceUsed;
-
-        // determines if the total space used by the batteries and bandages exceeds the available space.
-        if (totalSpaceUsed > maxInventory) {
-            if (lastBatteriesValue != batteries) {
-                batteries = lastBatteriesValue;
-            }
-            else if (lastBandagesValue != bandages) {
-                bandages = lastBandagesValue;
-            }
-        }
-        std::cout << "batteries: " << batteries << " bandages: " << bandages << std::endl;
-    }*/
+    // terminates the window.
+    window.terminate();
     return 0;
 }

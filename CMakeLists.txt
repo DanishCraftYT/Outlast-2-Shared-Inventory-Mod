@@ -18,14 +18,27 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# finds the OpenGL & GLFW packages.
+find_package(OpenGL REQUIRED)
+
 # finds all .h and .cpp files. also compiles "glad.c".
 file(GLOB_RECURSE SOURCES
+    "include/*.h"
+    "include/*.hpp"
+    "include/*.cpp"
     "src/*.hpp"
     "src/*.cpp"
+    "glad.c"
 )
 
 # tells CMake to create a .exe file using the specified source files.
 add_executable(OL2SharedInventoryMod main.cpp ${SOURCES})
 
 # handles include directories and libraries.
-target_include_directories(OL2SharedInventoryMod PRIVATE "src/")
+target_include_directories(OL2SharedInventoryMod PRIVATE "src/" "include/")
+
+set(LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib")
+target_include_directories(OL2SharedInventoryMod PUBLIC ${LIBRARY_PATH})
+
+include_directories(${OPENGL_INCLUDE_DIRS})
+target_link_libraries(OL2SharedInventoryMod ${OPENGL_LIBRARIES} ${LIBRARY_PATH}/libglfw3dll.a)
