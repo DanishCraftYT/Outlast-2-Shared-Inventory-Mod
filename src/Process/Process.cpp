@@ -12,6 +12,7 @@ void Process::getProcess() {
     // checks if the snapshot is valid.
     if (!snapshot || snapshot == INVALID_HANDLE_VALUE) {
         std::cout << "snapshot has a invalid handle value | System Error: " << GetLastError() << std::endl;
+        this->process = NULL;
         return;
     }
 
@@ -25,6 +26,7 @@ void Process::getProcess() {
                 if (!hProcess || hProcess == INVALID_HANDLE_VALUE) {
                     std::cout << "process has a invalid handle value | System Error: " << GetLastError() << std::endl;
                     CloseHandle(snapshot);
+                    this->process = NULL;
                     return;
                 }
 
@@ -39,6 +41,7 @@ void Process::getProcess() {
 
     CloseHandle(snapshot);
     std::cout << "failed to find process: " << processName << std::endl;
+    this->process = NULL;
 }
 
 bool Process::validProcess() {
@@ -60,6 +63,7 @@ void Process::getBaseAddress() {
         }
     }
     std::cout << "failed to get the base address of: " << this->moduleName << std::endl;
+    this->baseAddress = 0;
 }
 
 bool Process::validBaseAddress() {

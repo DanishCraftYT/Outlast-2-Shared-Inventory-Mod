@@ -1,5 +1,7 @@
+#include <cstddef>
 #include <iostream>
 #include <chrono>
+#include <memory>
 #include <thread>
 #include <format>
 #include <cmath>
@@ -8,8 +10,14 @@
 #include "Memory/Memory.hpp"
 
 int main() {
+    WindowSize windowSize = {400, 350};
+
     Memory mem("Outlast2.exe", "Outlast2.exe");
-    Window window({4, 6, GLFW_OPENGL_CORE_PROFILE}, {300, 300}, WindowMode::WINDOWED_FALLBACK, "Outlast 2 Shared Inventory Mod!");
+    Window window({4, 6, GLFW_OPENGL_CORE_PROFILE}, windowSize, WindowMode::WINDOWED_FALLBACK, "Outlast 2 Shared Inventory Mod!", DISABLED, glfwGetPrimaryMonitor());
+
+    int monitorCount = 0;
+    GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+    std::string guiPreviewMonitor = glfwGetMonitorName(glfwGetPrimaryMonitor());
 
     int batteries = 0;
     int lastBatteriesValue = 0;
@@ -32,14 +40,19 @@ int main() {
 
     std::string currentDfficultyString = "Normal";
 
+    std::string errMsg = "None.";
+    bool recentErr = false;
+
     while (!window.shouldWindowClose()) {
         // sets the viewport color.
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        recentErr = false;
+
         window.newFrameImGUI();
 
-        ImGui::SetNextWindowSize(ImVec2(283, 231));
+        ImGui::SetNextWindowSize(ImVec2(375, 250));
         ImGui::Begin("Outlast 2 Shared Inventory Mod!", __null, ImGuiWindowFlags_NoResize);
         // checks if the Outlast 2 process is running.
         if (!mem.getProcess()) {
@@ -49,15 +62,15 @@ int main() {
             lastBatteriesValue = batteries;
             // reads batteries value.
             if (!mem.readMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &batteries, sizeof(batteries))) {
-                std::cout << "failed to read batteries value." << std::endl;
-                break;
+                errMsg = "failed to read batteries value.";
+                recentErr = true;
             }
 
             lastBandagesValue = bandages;
             // reads bandages value.
             if (!mem.readMemory(mem.readPointer(0x0219FDB8, { 0x8, 0x154, 0xC88 }), &bandages, sizeof(bandages))) {
-                std::cout << "failed to read bandages value." << std::endl;
-                break;
+                errMsg = "failed to read bandages value.";
+                recentErr = true;
             }
 
             bandageSpaceUsed = bandages * bandageSpace;
@@ -67,14 +80,14 @@ int main() {
             if (totalSpaceUsed > maxInventorySpace) {
                 if (lastBatteriesValue != batteries) {
                     if (!mem.writeMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &lastBatteriesValue, sizeof(lastBatteriesValue))) {
-                        std::cout << "failed to write batteries value." << std::endl;
-                        break;
+                        errMsg = "failed to write batteries value.";
+                        recentErr = true;
                     }
                 }
                 else if (lastBandagesValue != bandages) {
                     if (!mem.writeMemory(mem.readPointer(0x0219FDB8, { 0x8, 0x154, 0xC88 }), &lastBandagesValue, sizeof(lastBandagesValue))) {
-                        std::cout << "failed to write bandages value." << std::endl;
-                        break;
+                        errMsg = "failed to write bandages value.";
+                        recentErr = true;
                     }
                 }
                 else {
@@ -94,25 +107,30 @@ int main() {
 
                     // batteries.
                     if (!mem.writeMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &batteries, sizeof(batteries))) {
-                        std::cout << "failed to write batteries value." << std::endl;
-                        break;
+                        errMsg = "failed to write batteries value.";
+                        recentErr = true;
                     }
 
                     // bandages.
                     if (!mem.writeMemory(mem.readPointer(0x0219FDB8, { 0x8, 0x154, 0xC88 }), &bandages, sizeof(bandages))) {
-                        std::cout << "failed to write bandages value." << std::endl;
-                        break;
+                        errMsg = "failed to write bandages value.";
+                        recentErr = true;
                     }
                 }
             }
 
+            ImGui::Text(std::format("Error: {}", errMsg).c_str());
+
             if (ImGui::BeginTabBar("OL2SharedInvModTabs")) {
+                // displays inventory infomation.
                 if (ImGui::BeginTabItem("Infomation")) {
                     ImGui::Text(std::format("Inventory Used: {} / {}", totalSpaceUsed, maxInventorySpace).c_str());
                     ImGui::Text(std::format("Batteries: {}", batteries).c_str());
                     ImGui::Text(std::format("Bandages: {} (inventory space used: {})", bandages, bandageSpaceUsed).c_str());
                     ImGui::EndTabItem();
                 }
+
+                // contains difficulty settings.
                 if (ImGui::BeginTabItem("Difficulty")) {
                     ImGui::Text("Current Diffculty:");
                     if (ImGui::BeginCombo("##Diffculty", currentDfficultyString.c_str())) {
@@ -136,37 +154,40 @@ int main() {
                     ImGui::Text("");
 
                     ImGui::Text("Difficulty Infomation:");
-                    ImGui::Text("Normal: you have 8 Inventory Spaces\nBandages take up 2 Inventory Spaces.");
-                    ImGui::Text("Hard: you have 6 Inventory Spaces\nBandages take up 2 Inventory Spaces.");
-                    ImGui::Text("Custom: automatically sets the\ndifficulty to Custom if you modify the\nmax inventory value in the Debug tab.");
+                    ImGui::Text("Normal: you have 8 Inventory Spaces.\nBandages take up 2 Inventory Spaces.");
+                    ImGui::Text("Hard: you have 6 Inventory Spaces.\nBandages take up 2 Inventory Spaces.");
+                    ImGui::Text("Custom: automatically sets the difficulty to Custom\nif you modify the max inventory value in the Debug\ntab.");
                     ImGui::EndTabItem();
                 }
+
+                // contains debug sliders.
                 if (ImGui::BeginTabItem("Debug")) {
                     guiBatteries = batteries;
-                    // batteries.
+                    // allows you to adjust the amount of batteries in your inventory.
                     ImGui::Text("Batteries In Inventory:");
                     if (ImGui::SliderInt("##DebugBatteries", &guiBatteries, 0, guiMaxBatteries)) {
                         if (!mem.writeMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &guiBatteries, sizeof(guiBatteries))) {
-                            std::cout << "failed to write bandages value." << std::endl;
-                            break;
+                            errMsg = "failed to write bandages value.";
+                            recentErr = true;
                         }
                     }
 
                     ImGui::Text("");
 
                     guiBandages = bandages;
-                    // bandages.
+                    // allows you to adjust the amount of bandages in your inventory.
                     ImGui::Text("Bandages In Inventory:");
                     if (ImGui::SliderInt("##DebugBandages", &guiBandages, 0, guiMaxBandages)) {
                         if (!mem.writeMemory(mem.readPointer(0x0219FDB8, { 0x8, 0x154, 0xC88 }), &guiBandages, sizeof(guiBandages))) {
-                            std::cout << "failed to write bandages value." << std::endl;
-                            break;
+                            errMsg = "failed to write bandages value.";
+                            recentErr = true;
                         }
                     }
                     ImGui::EndTabItem();
 
                     ImGui::Text("");
 
+                    // allows you to adjust the total inventory space.
                     ImGui::Text("Max Inventory Space:");
                     if (ImGui::SliderInt("##DebugMaxInvSpace", &maxInventorySpace, 0, guiMaxInventorySpace)) {
                         currentDfficultyString = "Custom";
@@ -174,11 +195,34 @@ int main() {
                         guiMaxBandages = std::round(maxInventorySpace / 2);
                     }
                 }
+
+                // settings for the mod.
+                if (ImGui::BeginTabItem("Settings")) {
+                    // determines what monitor the GLFW Window is rendered on.
+                    ImGui::Text("change the monitor the mod overlay will render on:");
+                    if (ImGui::BeginCombo("List of Monitors", guiPreviewMonitor.c_str())) {
+                        int monitorWidth = 0;
+                        // loops through all the monitors.
+                        for (int i = 0; i < monitorCount; i++) {
+                            if (ImGui::Selectable(std::format("{}##{}", glfwGetMonitorName(monitors[i]), i).c_str())) {
+                                glfwSetWindowMonitor(window.getWindow(), NULL, monitorWidth, 0, windowSize.width, windowSize.height, glfwGetVideoMode(monitors[i])->refreshRate);
+                            }
+                            monitorWidth += glfwGetVideoMode(monitors[i])->width;
+                        }
+                        ImGui::EndCombo();
+                    }
+                    ImGui::EndTabItem();
+                }
                 ImGui::EndTabBar();
             }
         }
         ImGui::End();
         window.renderImGUI();
+
+        // if no error occured during this iteration of the loop. it sets the error message to none.
+        if (!recentErr) {
+            errMsg = "None.";
+        }
 
         // swaps GLFW window buffers and handle poll events.
         window.swapBuffers();

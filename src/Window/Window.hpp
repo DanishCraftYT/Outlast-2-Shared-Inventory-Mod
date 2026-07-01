@@ -35,7 +35,7 @@ enum OpenGLDebugMode {
 
 class Window {
 public:
-    Window(WindowHints windowHints, WindowSize windowSize, WindowMode windowMode, const char* title, OpenGLDebugMode debugOpenGL=OpenGLDebugMode::DISABLED);
+    Window(WindowHints windowHints, WindowSize windowSize, WindowMode windowMode, const char* title, OpenGLDebugMode debugOpenGL=OpenGLDebugMode::DISABLED, GLFWmonitor* monitor=NULL);
     Window() = default;
     int shouldWindowClose();
     void newFrameImGUI();
@@ -44,6 +44,7 @@ public:
     void pollEvents();
     void terminate();
     WindowSize getWindowSize();
+    GLFWwindow* getWindow();
     bool windowSizeChanged;
 private:
     GLFWwindow* window;

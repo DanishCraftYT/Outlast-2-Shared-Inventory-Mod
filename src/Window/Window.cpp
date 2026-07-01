@@ -1,6 +1,6 @@
 #include "Window.hpp"
 
-Window::Window(WindowHints windowHints, WindowSize windowSize, WindowMode windowMode, const char* title, OpenGLDebugMode debugOpenGL) : windowMode(windowMode) {
+Window::Window(WindowHints windowHints, WindowSize windowSize, WindowMode windowMode, const char* title, OpenGLDebugMode debugOpenGL, GLFWmonitor* monitor) : windowMode(windowMode) {
     // inits GLFW and handles GLFW window hints.
     if (!glfwInit()) {
         // GLFW failed to init.
@@ -28,7 +28,7 @@ Window::Window(WindowHints windowHints, WindowSize windowSize, WindowMode window
     // determines if the GLFW Window will be in Windowed or Fullscreen mode or if "glfwGetVideoMode()" fails. it will fallback to it's default window size.
     if (glfwMonitorInfo != NULL && this->windowMode != WindowMode::WINDOWED_FALLBACK) {
         if (this->windowMode == WindowMode::WINDOWED) {
-            this->window = glfwCreateWindow(glfwMonitorInfo->width, glfwMonitorInfo->height, title, NULL, NULL);
+            this->window = glfwCreateWindow(glfwMonitorInfo->width, glfwMonitorInfo->height, title, monitor, NULL);
         }
         else if (this->windowMode == WindowMode::FULLSCREEN) {
             glfwWindowHint(GLFW_RED_BITS, glfwMonitorInfo->redBits);
@@ -136,6 +136,10 @@ WindowSize Window::getWindowSize() {
     WindowSize size;
     glfwGetWindowSize(this->window, &size.width, &size.height);
     return size;
+}
+
+GLFWwindow* Window::getWindow() {
+    return this->window;
 }
 
 void windowResizeCallback(GLFWwindow* window, int width, int height) {
