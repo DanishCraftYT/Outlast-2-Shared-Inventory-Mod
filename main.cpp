@@ -6,6 +6,7 @@
 #include <format>
 #include <cmath>
 
+#include "ImGUI/imgui.h"
 #include "Window/Window.hpp"
 #include "Memory/Memory.hpp"
 
@@ -38,6 +39,10 @@ int main() {
 
     const int guiMaxInventorySpace = 8; // maximum possible inventory space.
 
+    bool instantUseEnabled = false; // WIP.
+
+    const std::string modVersion = "1.0.0"; // contains the current mod version.
+
     std::string currentDfficultyString = "Normal";
 
     std::string errMsg = "None.";
@@ -52,11 +57,16 @@ int main() {
 
         window.newFrameImGUI();
 
-        ImGui::SetNextWindowSize(ImVec2(375, 250));
+        ImGui::SetNextWindowSize(ImVec2(375, 232));
         ImGui::Begin("Outlast 2 Shared Inventory Mod!", __null, ImGuiWindowFlags_NoResize);
         // checks if the Outlast 2 process is running.
         if (!mem.getProcess()) {
             ImGui::Text("Outlast 2 is not running. please open the game.");
+        }
+        if (errMsg != "None.") {
+            ImGui::Text(std::format("Error: {}", errMsg).c_str());
+            ImGui::Text("Fix 1: load a save.");
+            ImGui::Text("Fix 2: restart game.");
         }
         else {
             lastBatteriesValue = batteries;
@@ -79,12 +89,18 @@ int main() {
             // determines if the total space used by the batteries and bandages exceeds the available space.
             if (totalSpaceUsed > maxInventorySpace) {
                 if (lastBatteriesValue != batteries) {
+                    if (instantUseEnabled) {
+                        // write current battery duration value to 1.
+                    }
                     if (!mem.writeMemory(mem.readPointer(0x0219FF58, { 0x250, 0xD0, 0x10, 0x8, 0xC80 }), &lastBatteriesValue, sizeof(lastBatteriesValue))) {
                         errMsg = "failed to write batteries value.";
                         recentErr = true;
                     }
                 }
                 else if (lastBandagesValue != bandages) {
+                    if (instantUseEnabled) {
+                        // write current health value to 100.
+                    }
                     if (!mem.writeMemory(mem.readPointer(0x0219FDB8, { 0x8, 0x154, 0xC88 }), &lastBandagesValue, sizeof(lastBandagesValue))) {
                         errMsg = "failed to write bandages value.";
                         recentErr = true;
@@ -119,14 +135,17 @@ int main() {
                 }
             }
 
-            ImGui::Text(std::format("Error: {}", errMsg).c_str());
-
             if (ImGui::BeginTabBar("OL2SharedInvModTabs")) {
                 // displays inventory infomation.
-                if (ImGui::BeginTabItem("Infomation")) {
+                if (ImGui::BeginTabItem("Info")) {
                     ImGui::Text(std::format("Inventory Used: {} / {}", totalSpaceUsed, maxInventorySpace).c_str());
                     ImGui::Text(std::format("Batteries: {}", batteries).c_str());
                     ImGui::Text(std::format("Bandages: {} (inventory space used: {})", bandages, bandageSpaceUsed).c_str());
+                    ImGui::Checkbox("Instant Use (WIP)", &instantUseEnabled);
+                    ImGui::Text("");
+                    ImGui::Text("About Mod:");
+                    ImGui::Text("Creator: Danish Craft");
+                    ImGui::Text(std::format("Version: {}", modVersion).c_str());
                     ImGui::EndTabItem();
                 }
 
