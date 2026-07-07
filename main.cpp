@@ -63,11 +63,6 @@ int main() {
         if (!mem.getProcess()) {
             ImGui::Text("Outlast 2 is not running. please open the game.");
         }
-        if (errMsg != "None.") {
-            ImGui::Text(std::format("Error: {}", errMsg).c_str());
-            ImGui::Text("Fix 1: load a save.");
-            ImGui::Text("Fix 2: restart game.");
-        }
         else {
             lastBatteriesValue = batteries;
             // reads batteries value.
@@ -142,6 +137,8 @@ int main() {
                     ImGui::Text(std::format("Batteries: {}", batteries).c_str());
                     ImGui::Text(std::format("Bandages: {} (inventory space used: {})", bandages, bandageSpaceUsed).c_str());
                     ImGui::Checkbox("Instant Use (WIP)", &instantUseEnabled);
+                    ImGui::Text("");
+                    ImGui::Text(std::format("Error: {}", errMsg).c_str());
                     ImGui::Text("");
                     ImGui::Text("About Mod:");
                     ImGui::Text("Creator: Danish Craft");
